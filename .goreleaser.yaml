@@ -61,18 +61,17 @@ release:
   prerelease: auto
   name_template: "v{{.Version}}"
 
-brews:
-  - name: gitcraft
-    repository:
-      owner: nathannewyen
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Formula
-    homepage: "https://github.com/nathannewyen/gitcraft"
-    description: "AI-powered git commit message generator"
-    license: "MIT"
-    skip_upload: auto
-    test: |
-      system "#{bin}/gitcraft", "--version"
-    install: |
-      bin.install "gitcraft"
+# Homebrew tap - uncomment when nathannewyen/homebrew-tap repo exists
+# brews:
+#   - name: gitcraft
+#     repository:
+#       owner: nathannewyen
+#       name: homebrew-tap
+#     directory: Formula
+#     homepage: "https://github.com/nathannewyen/gitcraft"
+#     description: "AI-powered git commit message generator"
+#     license: "MIT"
+#     test: |
+#       system "#{bin}/gitcraft", "--version"
+#     install: |
+#       bin.install "gitcraft"
