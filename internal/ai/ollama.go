@@ -1,0 +1,113 @@
+// Copyright 2025 Nathan Nguyen
+// SPDX-License-Identifier: MIT
+
+package ai
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+
+	"github.com/spf13/viper"
+)
+
+// OllamaProvider implements the Provider interface for Ollama (local models)
+type OllamaProvider struct {
+	baseURL string
+	model   string
+}
+
+// Ollama API structures
+type ollamaRequest struct {
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
+	Stream bool   `json:"stream"`
+}
+
+type ollamaResponse struct {
+	Response string `json:"response"`
+	Error    string `json:"error,omitempty"`
+}
+
+// NewOllamaProvider creates a new Ollama provider
+func NewOllamaProvider() *OllamaProvider {
+	baseURL := viper.GetString("ollama.url")
+	if baseURL == "" {
+		baseURL = "http://localhost:11434"
+	}
+
+	model := viper.GetString("ollama.model")
+	if model == "" {
+		model = "llama3.2"
+	}
+
+	return &OllamaProvider{
+		baseURL: baseURL,
+		model:   model,
+	}
+}
+
+// Name returns the provider name
+func (p *OllamaProvider) Name() string {
+	return "ollama"
+}
+
+// IsConfigured returns true if Ollama is configured
+// Ollama doesn't require an API key, just a running server
+func (p *OllamaProvider) IsConfigured() bool {
+	return p.baseURL != ""
+}
+
+// Generate generates a commit message using Ollama
+func (p *OllamaProvider) Generate(ctx context.Context, req *GenerateRequest) (*GenerateResponse, error) {
+	prompt := BuildPrompt(req)
+
+	requestBody := ollamaRequest{
+		Model:  p.model,
+		Prompt: prompt,
+		Stream: false,
+	}
+
+	jsonBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to marshal request: %v", ErrGenerationFailed, err)
+	}
+
+	url := fmt.Sprintf("%s/api/generate", p.baseURL)
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to create request: %v", ErrGenerationFailed, err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("%w: request failed (is Ollama running?): %v", ErrGenerationFailed, err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to read response: %v", ErrGenerationFailed, err)
+	}
+
+	var ollamaResp ollamaResponse
+	if err := json.Unmarshal(body, &ollamaResp); err != nil {
+		return nil, fmt.Errorf("%w: failed to parse response: %v", ErrGenerationFailed, err)
+	}
+
+	if ollamaResp.Error != "" {
+		return nil, fmt.Errorf("%w: %s", ErrGenerationFailed, ollamaResp.Error)
+	}
+
+	if ollamaResp.Response == "" {
+		return nil, fmt.Errorf("%w: no response from Ollama", ErrGenerationFailed)
+	}
+
+	return ParseResponse(ollamaResp.Response), nil
+}
