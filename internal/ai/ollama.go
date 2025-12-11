@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/spf13/viper"
@@ -77,8 +78,17 @@ func (p *OllamaProvider) Generate(ctx context.Context, req *GenerateRequest) (*G
 		return nil, fmt.Errorf("%w: failed to marshal request: %v", ErrGenerationFailed, err)
 	}
 
-	url := fmt.Sprintf("%s/api/generate", p.baseURL)
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+	// Security: Validate baseURL before constructing request URL
+	parsedURL, err := url.Parse(p.baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid base URL: %v", ErrGenerationFailed, err)
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return nil, fmt.Errorf("%w: base URL must use http or https scheme", ErrGenerationFailed)
+	}
+
+	requestURL := fmt.Sprintf("%s/api/generate", p.baseURL)
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", requestURL, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create request: %v", ErrGenerationFailed, err)
 	}
@@ -97,7 +107,10 @@ func (p *OllamaProvider) Generate(ctx context.Context, req *GenerateRequest) (*G
 
 	// Check HTTP status code before parsing response
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("%w: API error (status %d), failed to read response: %v", ErrGenerationFailed, resp.StatusCode, readErr)
+		}
 		return nil, fmt.Errorf("%w: API error (status %d): %s", ErrGenerationFailed, resp.StatusCode, string(body))
 	}
 

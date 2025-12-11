@@ -116,7 +116,10 @@ func (p *ClaudeProvider) Generate(ctx context.Context, req *GenerateRequest) (*G
 
 	// Check HTTP status code before parsing response
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("%w: API error (status %d), failed to read response: %v", ErrGenerationFailed, resp.StatusCode, readErr)
+		}
 		return nil, fmt.Errorf("%w: API error (status %d): %s", ErrGenerationFailed, resp.StatusCode, string(body))
 	}
 

@@ -237,13 +237,19 @@ func performCommit(message string) error {
 
 // editAndCommit opens the user's editor to edit the commit message
 func editAndCommit(message string) error {
-	// Get editor from environment
+	// Get editor from environment with validation
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = os.Getenv("VISUAL")
 	}
 	if editor == "" {
 		editor = "vi"
+	}
+
+	// Security: Validate editor is a real executable to prevent command injection
+	editorPath, err := exec.LookPath(editor)
+	if err != nil {
+		return fmt.Errorf("invalid editor '%s': %v", editor, err)
 	}
 
 	// Create a temporary file with the message
@@ -258,8 +264,8 @@ func editAndCommit(message string) error {
 	}
 	tmpFile.Close()
 
-	// Open editor using exec.Command
-	editorCmd := exec.Command(editor, tmpFile.Name())
+	// Open editor using validated path
+	editorCmd := exec.Command(editorPath, tmpFile.Name())
 	editorCmd.Stdin = os.Stdin
 	editorCmd.Stdout = os.Stdout
 	editorCmd.Stderr = os.Stderr

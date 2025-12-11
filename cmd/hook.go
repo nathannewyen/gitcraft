@@ -213,5 +213,14 @@ func getGitDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Clean(string(output[:len(output)-1])), nil
+	// Safety: Check length before slicing to prevent index out of bounds panic
+	if len(output) == 0 {
+		return "", fmt.Errorf("empty output from git rev-parse")
+	}
+	// Remove trailing newline if present
+	result := string(output)
+	if result[len(result)-1] == '\n' {
+		result = result[:len(result)-1]
+	}
+	return filepath.Clean(result), nil
 }
