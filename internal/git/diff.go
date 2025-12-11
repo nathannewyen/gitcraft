@@ -6,6 +6,7 @@ package git
 import (
 	"errors"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -98,7 +99,15 @@ func GetCurrentBranch() (string, error) {
 
 // GetRecentCommits returns the most recent commit messages for context
 func GetRecentCommits(count int) ([]string, error) {
-	cmd := exec.Command("git", "log", "--oneline", "-n", string(rune(count+'0')))
+	// Validate count parameter
+	if count <= 0 {
+		return nil, errors.New("count must be positive")
+	}
+	if count > 100 {
+		count = 100 // Cap at reasonable maximum
+	}
+
+	cmd := exec.Command("git", "log", "--oneline", "-n", strconv.Itoa(count))
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err

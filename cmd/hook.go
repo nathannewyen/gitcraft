@@ -66,7 +66,7 @@ var hookInstallCmd = &cobra.Command{
 		// Find git directory
 		gitDir, err := getGitDir()
 		if err != nil {
-			return fmt.Errorf(ErrorStyle.Render("Not a git repository"))
+			return fmt.Errorf("%s", ErrorStyle.Render("Not a git repository"))
 		}
 
 		hookPath := filepath.Join(gitDir, "hooks", "prepare-commit-msg")
@@ -76,7 +76,7 @@ var hookInstallCmd = &cobra.Command{
 			// Read existing hook to check if it's ours
 			content, err := os.ReadFile(hookPath)
 			if err != nil {
-				return fmt.Errorf(ErrorStyle.Render("Failed to read existing hook: %v"), err)
+				return fmt.Errorf("%s", ErrorStyle.Render(fmt.Sprintf("Failed to read existing hook: %v", err)))
 			}
 
 			if string(content) == hookScript {
@@ -87,20 +87,20 @@ var hookInstallCmd = &cobra.Command{
 			// Backup existing hook
 			backupPath := hookPath + ".backup"
 			if err := os.Rename(hookPath, backupPath); err != nil {
-				return fmt.Errorf(ErrorStyle.Render("Failed to backup existing hook: %v"), err)
+				return fmt.Errorf("%s", ErrorStyle.Render(fmt.Sprintf("Failed to backup existing hook: %v", err)))
 			}
-			fmt.Printf(DimStyle.Render("Backed up existing hook to %s\n"), backupPath)
+			fmt.Println(DimStyle.Render(fmt.Sprintf("Backed up existing hook to %s", backupPath)))
 		}
 
 		// Create hooks directory if it doesn't exist
 		hooksDir := filepath.Join(gitDir, "hooks")
 		if err := os.MkdirAll(hooksDir, 0755); err != nil {
-			return fmt.Errorf(ErrorStyle.Render("Failed to create hooks directory: %v"), err)
+			return fmt.Errorf("%s", ErrorStyle.Render(fmt.Sprintf("Failed to create hooks directory: %v", err)))
 		}
 
 		// Write hook script
 		if err := os.WriteFile(hookPath, []byte(hookScript), 0755); err != nil {
-			return fmt.Errorf(ErrorStyle.Render("Failed to write hook: %v"), err)
+			return fmt.Errorf("%s", ErrorStyle.Render(fmt.Sprintf("Failed to write hook: %v", err)))
 		}
 
 		fmt.Println(SuccessStyle.Render("gitcraft hook installed successfully!"))
@@ -116,7 +116,7 @@ var hookUninstallCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		gitDir, err := getGitDir()
 		if err != nil {
-			return fmt.Errorf(ErrorStyle.Render("Not a git repository"))
+			return fmt.Errorf("%s", ErrorStyle.Render("Not a git repository"))
 		}
 
 		hookPath := filepath.Join(gitDir, "hooks", "prepare-commit-msg")
@@ -154,7 +154,7 @@ var hookUninstallCmd = &cobra.Command{
 		backupPath := hookPath + ".backup"
 		if _, err := os.Stat(backupPath); err == nil {
 			if err := os.Rename(backupPath, hookPath); err != nil {
-				fmt.Printf(DimStyle.Render("Note: Failed to restore backup hook: %v\n"), err)
+				fmt.Println(DimStyle.Render(fmt.Sprintf("Note: Failed to restore backup hook: %v", err)))
 			} else {
 				fmt.Println(DimStyle.Render("Restored previous hook from backup"))
 			}
@@ -172,7 +172,7 @@ var hookStatusCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		gitDir, err := getGitDir()
 		if err != nil {
-			return fmt.Errorf(ErrorStyle.Render("Not a git repository"))
+			return fmt.Errorf("%s", ErrorStyle.Render("Not a git repository"))
 		}
 
 		hookPath := filepath.Join(gitDir, "hooks", "prepare-commit-msg")
@@ -187,7 +187,7 @@ var hookStatusCmd = &cobra.Command{
 		// Read hook to verify it's ours
 		content, err := os.ReadFile(hookPath)
 		if err != nil {
-			return fmt.Errorf(ErrorStyle.Render("Failed to read hook: %v"), err)
+			return fmt.Errorf("%s", ErrorStyle.Render(fmt.Sprintf("Failed to read hook: %v", err)))
 		}
 
 		if string(content) == hookScript {

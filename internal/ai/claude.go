@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -104,12 +105,20 @@ func (p *ClaudeProvider) Generate(ctx context.Context, req *GenerateRequest) (*G
 	httpReq.Header.Set("x-api-key", p.apiKey)
 	httpReq.Header.Set("anthropic-version", "2023-06-01")
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("%w: request failed: %v", ErrGenerationFailed, err)
 	}
 	defer resp.Body.Close()
+
+	// Check HTTP status code before parsing response
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("%w: API error (status %d): %s", ErrGenerationFailed, resp.StatusCode, string(body))
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

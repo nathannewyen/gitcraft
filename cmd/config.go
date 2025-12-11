@@ -45,14 +45,10 @@ var configSetCmd = &cobra.Command{
 			return fmt.Errorf(ErrorStyle.Render("Failed to write config: %v"), err)
 		}
 
-		// Mask API keys in output
+		// Mask API keys in output for security
 		displayValue := value
 		if strings.Contains(strings.ToLower(key), "api_key") {
-			if len(value) > 8 {
-				displayValue = value[:4] + "..." + value[len(value)-4:]
-			} else {
-				displayValue = "****"
-			}
+			displayValue = maskAPIKey(value)
 		}
 
 		fmt.Printf(SuccessStyle.Render("Set %s = %s\n"), key, displayValue)
@@ -74,14 +70,10 @@ var configGetCmd = &cobra.Command{
 			return nil
 		}
 
-		// Mask API keys in output
+		// Mask API keys in output for security
 		displayValue := value
 		if strings.Contains(strings.ToLower(key), "api_key") {
-			if len(value) > 8 {
-				displayValue = value[:4] + "..." + value[len(value)-4:]
-			} else {
-				displayValue = "****"
-			}
+			displayValue = maskAPIKey(value)
 		}
 
 		fmt.Printf("%s = %s\n", key, displayValue)
@@ -143,6 +135,18 @@ func writeConfig() error {
 	return viper.WriteConfigAs(configPath)
 }
 
+// maskAPIKey masks sensitive API key values for display
+// Shows first 4 and last 4 characters for keys longer than 8 characters
+func maskAPIKey(value string) string {
+	if value == "" {
+		return ""
+	}
+	if len(value) > 8 {
+		return value[:4] + "..." + value[len(value)-4:]
+	}
+	return "****"
+}
+
 // printSettings recursively prints settings with proper indentation
 func printSettings(prefix string, settings map[string]interface{}) {
 	for key, value := range settings {
@@ -156,14 +160,9 @@ func printSettings(prefix string, settings map[string]interface{}) {
 			printSettings(fullKey, v)
 		default:
 			displayValue := fmt.Sprintf("%v", v)
-			// Mask API keys
+			// Mask API keys for security
 			if strings.Contains(strings.ToLower(fullKey), "api_key") {
-				strVal := fmt.Sprintf("%v", v)
-				if len(strVal) > 8 {
-					displayValue = strVal[:4] + "..." + strVal[len(strVal)-4:]
-				} else if strVal != "" {
-					displayValue = "****"
-				}
+				displayValue = maskAPIKey(fmt.Sprintf("%v", v))
 			}
 			fmt.Printf("  %s = %s\n", InfoStyle.Render(fullKey), displayValue)
 		}

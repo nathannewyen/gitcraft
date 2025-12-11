@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -104,20 +105,30 @@ func (p *GeminiProvider) Generate(ctx context.Context, req *GenerateRequest) (*G
 		return nil, fmt.Errorf("%w: failed to marshal request: %v", ErrGenerationFailed, err)
 	}
 
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", p.model, p.apiKey)
+	// Use header for API key instead of URL query parameter for security
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent", p.model)
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create request: %v", ErrGenerationFailed, err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-goog-api-key", p.apiKey)
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("%w: request failed: %v", ErrGenerationFailed, err)
 	}
 	defer resp.Body.Close()
+
+	// Check HTTP status code before parsing response
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("%w: API error (status %d): %s", ErrGenerationFailed, resp.StatusCode, string(body))
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

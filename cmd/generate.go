@@ -28,6 +28,22 @@ func generateCommitMessage(cmd *cobra.Command) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	maxLength, _ := cmd.Flags().GetInt("max-length")
 
+	// Validate input parameters
+	if maxLength <= 0 {
+		maxLength = 72 // Default to standard commit message length
+	}
+
+	// Validate commit type if provided
+	validTypes := map[string]bool{
+		"feat": true, "fix": true, "docs": true, "style": true,
+		"refactor": true, "test": true, "chore": true, "perf": true,
+		"ci": true, "build": true, "": true,
+	}
+	if !validTypes[commitType] {
+		return fmt.Errorf("%s%s", ErrorStyle.Render(fmt.Sprintf("Invalid commit type: %s\n", commitType)),
+			DimStyle.Render("Valid types: feat, fix, docs, style, refactor, test, chore, perf, ci, build"))
+	}
+
 	// Get staged diff
 	fmt.Println(InfoStyle.Render("Analyzing staged changes..."))
 
@@ -35,27 +51,32 @@ func generateCommitMessage(cmd *cobra.Command) error {
 	if err != nil {
 		switch err {
 		case git.ErrNotGitRepo:
-			return fmt.Errorf(ErrorStyle.Render("Not a git repository"))
+			return fmt.Errorf("%s", ErrorStyle.Render("Not a git repository"))
 		case git.ErrNoStagedChanges:
-			return fmt.Errorf(ErrorStyle.Render("No staged changes found. Use 'git add' to stage changes."))
+			return fmt.Errorf("%s", ErrorStyle.Render("No staged changes found. Use 'git add' to stage changes."))
 		case git.ErrGitNotFound:
-			return fmt.Errorf(ErrorStyle.Render("Git command not found. Please install git."))
+			return fmt.Errorf("%s", ErrorStyle.Render("Git command not found. Please install git."))
 		default:
-			return fmt.Errorf(ErrorStyle.Render("Failed to get staged diff: %v"), err)
+			return fmt.Errorf("%s", ErrorStyle.Render(fmt.Sprintf("Failed to get staged diff: %v", err)))
 		}
 	}
 
 	// Show what we're working with
-	fmt.Printf(DimStyle.Render("  Files changed: %d\n"), len(diffInfo.FilesChanged))
+	fmt.Println(DimStyle.Render(fmt.Sprintf("  Files changed: %d", len(diffInfo.FilesChanged))))
 	for _, file := range diffInfo.FilesChanged {
-		fmt.Printf(DimStyle.Render("    - %s\n"), file)
+		fmt.Println(DimStyle.Render(fmt.Sprintf("    - %s", file)))
 	}
 
 	// Truncate diff if too large
 	diff := git.TruncateDiff(diffInfo.Diff, maxDiffSize)
 
-	// Get recent commits for style reference
-	recentCommits, _ := git.GetRecentCommits(5)
+	// Get recent commits for style reference (non-fatal if fails)
+	recentCommits, err := git.GetRecentCommits(5)
+	if err != nil {
+		// Log warning but continue - recent commits are optional context
+		fmt.Println(DimStyle.Render("  Note: Could not fetch recent commits for style reference"))
+		recentCommits = nil
+	}
 
 	// Get provider
 	provider, err := getProvider()
@@ -157,8 +178,9 @@ func getProvider() (ai.Provider, error) {
 		}
 
 		if provider == nil {
-			return nil, fmt.Errorf(ErrorStyle.Render("No AI provider configured.\n") +
-				DimStyle.Render("Run 'gitcraft config set <provider>.api_key <your-key>' to configure.\n") +
+			return nil, fmt.Errorf("%s%s%s",
+				ErrorStyle.Render("No AI provider configured.\n"),
+				DimStyle.Render("Run 'gitcraft config set <provider>.api_key <your-key>' to configure.\n"),
 				DimStyle.Render("Supported providers: openai, claude, ollama, gemini"))
 		}
 	}
@@ -166,9 +188,9 @@ func getProvider() (ai.Provider, error) {
 	if !provider.IsConfigured() {
 		// Special case for Ollama which doesn't need API key
 		if providerName != "ollama" {
-			return nil, fmt.Errorf(ErrorStyle.Render("Provider '%s' not configured.\n")+
-				DimStyle.Render("Run 'gitcraft config set %s.api_key <your-key>' to configure."),
-				providerName, providerName)
+			return nil, fmt.Errorf("%s%s",
+				ErrorStyle.Render(fmt.Sprintf("Provider '%s' not configured.\n", providerName)),
+				DimStyle.Render(fmt.Sprintf("Run 'gitcraft config set %s.api_key <your-key>' to configure.", providerName)))
 		}
 	}
 

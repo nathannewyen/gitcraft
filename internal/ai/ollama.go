@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -84,12 +85,21 @@ func (p *OllamaProvider) Generate(ctx context.Context, req *GenerateRequest) (*G
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	// Ollama can be slow for local models, use longer timeout
+	client := &http.Client{
+		Timeout: 120 * time.Second,
+	}
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("%w: request failed (is Ollama running?): %v", ErrGenerationFailed, err)
 	}
 	defer resp.Body.Close()
+
+	// Check HTTP status code before parsing response
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("%w: API error (status %d): %s", ErrGenerationFailed, resp.StatusCode, string(body))
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
