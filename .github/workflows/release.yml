@@ -1,3 +1,4 @@
+# Release workflow - builds and publishes binaries on tag push
 name: Release
 
 on:
@@ -9,10 +10,12 @@ permissions:
   contents: write
 
 jobs:
-  goreleaser:
+  release:
+    name: Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
